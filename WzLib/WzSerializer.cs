@@ -633,7 +633,7 @@ namespace MapleLib.WzLib.Serialization
             tw.Write("}}");
             tw.Close();
             if (!parsed) img.UnparseImage();
-            File.WriteAllText(path, pretty(File.ReadAllText(path)));
+            File.WriteAllText(path, pretty(File.ReadAllText(path)), Encoding.GetEncoding("ISO-8859-1"));
 
         }
 
