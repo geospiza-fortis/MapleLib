@@ -284,8 +284,7 @@ namespace MapleLib.WzLib.Serialization
             else if (prop is WzStringProperty)
             {
                 WzStringProperty property = (WzStringProperty)prop;
-                string str = XmlUtil.SanitizeText(property.Value);
-                tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\": \"{str}\"");
+                tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\": {JsonConvert.ToString(property.Value)}");
             }
             else if (prop is WzSubProperty)
             {
