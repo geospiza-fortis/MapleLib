@@ -25,8 +25,6 @@ using System.Drawing.Imaging;
 using System.Globalization;
 using System.Xml;
 using System.Drawing;
-using System.Threading;
-using System.CodeDom;
 using Newtonsoft.Json;
 
 namespace MapleLib.WzLib.Serialization
@@ -210,7 +208,7 @@ namespace MapleLib.WzLib.Serialization
         }
 
         // TODO: this is not deserializable due to missing type information
-        protected void WritePropertyToJson(TextWriter tw, WzImageProperty prop, bool isArray=false)
+        protected void WritePropertyToJson(TextWriter tw, WzImageProperty prop, bool isArray = false)
         {
             tw.Write("\n");
             if (prop is WzCanvasProperty)
@@ -295,14 +293,15 @@ namespace MapleLib.WzLib.Serialization
                 }
                 // This has the same problem as the convex property
                 bool propertyIsArray = property.WzProperties.TrueForAll(x => { int num; return int.TryParse(x.Name, out num); });
-                tw.Write(propertyIsArray ? "[": "{");
+                tw.Write(propertyIsArray ? "[" : "{");
                 if (property.WzProperties.Count() > 0)
                 {
                     var last = property.WzProperties.Last();
                     foreach (WzImageProperty p in property.WzProperties)
                     {
                         bool isObject = p is WzConvexProperty || p is WzSubProperty || p is WzSoundProperty || p is WzCanvasProperty || p is WzVectorProperty;
-                        if (propertyIsArray) {
+                        if (propertyIsArray)
+                        {
                             tw.Write($"{{\"index\":{p.Name}, \"item\":");
                             tw.Write(!isObject ? "{" : "");
                         }
@@ -611,7 +610,7 @@ namespace MapleLib.WzLib.Serialization
 
     public class WzJsonSerializer : IWzJsonSerializer, IWzImageSerializer
     {
-        public WzJsonSerializer(bool exportbase64): base()
+        public WzJsonSerializer(bool exportbase64) : base()
         { ExportBase64Data = exportbase64; }
 
         private string pretty(string data)
