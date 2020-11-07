@@ -302,9 +302,16 @@ namespace MapleLib.WzLib.Serialization
                     foreach (WzImageProperty p in property.WzProperties)
                     {
                         bool isObject = p is WzConvexProperty || p is WzSubProperty || p is WzSoundProperty || p is WzCanvasProperty || p is WzVectorProperty;
-                        tw.Write(!isObject && propertyIsArray ? "{" : "");
+                        if (propertyIsArray) {
+                            tw.Write($"{{\"index\":{p.Name}, \"item\":");
+                            tw.Write(!isObject ? "{" : "");
+                        }
                         WritePropertyToJson(tw, p, propertyIsArray);
-                        tw.Write(!isObject && propertyIsArray ? "}" : "");
+                        if (propertyIsArray)
+                        {
+                            tw.Write(!isObject ? "}" : "");
+                            tw.Write("}");
+                        }
                         if (!p.Equals(last))
                         {
                             tw.Write(",");
