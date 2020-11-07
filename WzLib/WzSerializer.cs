@@ -25,7 +25,7 @@ using System.Drawing.Imaging;
 using System.Globalization;
 using System.Xml;
 using System.Drawing;
-using System.Threading;
+using Newtonsoft.Json;
 
 namespace MapleLib.WzLib.Serialization
 {
@@ -184,6 +184,197 @@ namespace MapleLib.WzLib.Serialization
                 foreach (WzImageProperty property in property14.WzProperties)
                     WritePropertyToXML(tw, newDepth, property);
                 tw.Write(depth + "</extended>" + lineBreak);
+            }
+        }
+    }
+
+    public abstract class IWzJsonSerializer : ProgressingWzSerializer
+    {
+
+        public static NumberFormatInfo formattingInfo;
+        protected bool ExportBase64Data = false;
+
+        protected static char[] amp = "&amp;".ToCharArray();
+        protected static char[] lt = "&lt;".ToCharArray();
+        protected static char[] gt = "&gt;".ToCharArray();
+        protected static char[] apos = "&apos;".ToCharArray();
+        protected static char[] quot = "&quot;".ToCharArray();
+
+        static IWzJsonSerializer()
+        {
+            formattingInfo = new NumberFormatInfo();
+            formattingInfo.NumberDecimalSeparator = ".";
+            formattingInfo.NumberGroupSeparator = ",";
+        }
+
+        // TODO: this is not deserializable due to missing type information
+        protected void WritePropertyToJson(TextWriter tw, WzImageProperty prop, bool isArray = false)
+        {
+            tw.Write("\n");
+            if (prop is WzCanvasProperty)
+            {
+                WzCanvasProperty property = (WzCanvasProperty)prop;
+                if (!isArray)
+                {
+                    tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\":");
+                }
+                if (ExportBase64Data)
+                {
+                    MemoryStream stream = new MemoryStream();
+                    property.PngProperty.GetPNG(false).Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+                    byte[] pngbytes = stream.ToArray();
+                    stream.Close();
+                    tw.Write($"{{" +
+                        $"\"width\": {property.PngProperty.Width}, " +
+                        $"\"height\": {property.PngProperty.Height}, " +
+                        $"\"basedata\": {Convert.ToBase64String(pngbytes)}\",");
+                }
+                else
+                    tw.Write($"{{" +
+                        $"\"width\": {property.PngProperty.Width}, " +
+                        $"\"height\": {property.PngProperty.Height},");
+                if (property.WzProperties.Count() > 0)
+                {
+                    var last = property.WzProperties.Last();
+                    foreach (WzImageProperty p in property.WzProperties)
+                    {
+                        WritePropertyToJson(tw, p);
+                        if (!p.Equals(last))
+                        {
+                            tw.Write(",");
+                        }
+                    }
+                }
+                tw.Write("}");
+
+            }
+            else if (prop is WzIntProperty)
+            {
+                WzIntProperty property = (WzIntProperty)prop;
+                tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\": {property.Value}");
+            }
+            else if (prop is WzDoubleProperty)
+            {
+                WzDoubleProperty property = (WzDoubleProperty)prop;
+                tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\": {property.Value}");
+            }
+            else if (prop is WzNullProperty)
+            {
+                WzNullProperty property = (WzNullProperty)prop;
+                tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\": null");
+            }
+            else if (prop is WzSoundProperty)
+            {
+                WzSoundProperty property = (WzSoundProperty)prop;
+                if (!isArray)
+                {
+                    tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\":");
+                }
+                if (ExportBase64Data)
+                    tw.Write($"{{" +
+                        $"\"length\":\"{property.Length}\", " +
+                        $"\"basehead\": \"{Convert.ToBase64String(property.Header)}\"" +
+                        $"\"basedata\": \"{Convert.ToBase64String(property.GetBytes(false))}\"" +
+                        $"}}");
+                else
+                    tw.Write("{}");
+            }
+            else if (prop is WzStringProperty)
+            {
+                WzStringProperty property = (WzStringProperty)prop;
+                tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\": {JsonConvert.ToString(property.Value)}");
+            }
+            else if (prop is WzSubProperty)
+            {
+                WzSubProperty property = (WzSubProperty)prop;
+                if (!isArray)
+                {
+                    tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\":");
+                }
+                // This has the same problem as the convex property
+                bool propertyIsArray = property.WzProperties.TrueForAll(x => { int num; return int.TryParse(x.Name, out num); });
+                tw.Write(propertyIsArray ? "[" : "{");
+                if (property.WzProperties.Count() > 0)
+                {
+                    var last = property.WzProperties.Last();
+                    foreach (WzImageProperty p in property.WzProperties)
+                    {
+                        bool isObject = p is WzConvexProperty || p is WzSubProperty || p is WzSoundProperty || p is WzCanvasProperty || p is WzVectorProperty;
+                        if (propertyIsArray)
+                        {
+                            tw.Write($"{{\"index\":{p.Name}, \"item\":");
+                            tw.Write(!isObject ? "{" : "");
+                        }
+                        WritePropertyToJson(tw, p, propertyIsArray);
+                        if (propertyIsArray)
+                        {
+                            tw.Write(!isObject ? "}" : "");
+                            tw.Write("}");
+                        }
+                        if (!p.Equals(last))
+                        {
+                            tw.Write(",");
+                        }
+                    }
+                }
+                tw.Write(propertyIsArray ? "]" : "}");
+            }
+            else if (prop is WzShortProperty)
+            {
+                WzShortProperty property = (WzShortProperty)prop;
+                tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\": {property.Value}");
+            }
+            else if (prop is WzLongProperty)
+            {
+                WzLongProperty property = (WzLongProperty)prop;
+                tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\": {property.Value}");
+            }
+            else if (prop is WzUOLProperty)
+            {
+                WzUOLProperty property = (WzUOLProperty)prop;
+                tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\": \"{property.Value}\"");
+            }
+            else if (prop is WzVectorProperty)
+            {
+                WzVectorProperty property = (WzVectorProperty)prop;
+                if (!isArray)
+                {
+                    tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\":");
+                }
+                tw.Write($"{{" +
+                    $"\"x\": {property.X.Value}, " +
+                    $"\"y\": {property.Y.Value}" +
+                    $"}}");
+            }
+            else if (prop is WzFloatProperty)
+            {
+                WzFloatProperty property = (WzFloatProperty)prop;
+                tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\": {property.Value * 1.0}");
+            }
+            else if (prop is WzConvexProperty)
+            {
+                WzConvexProperty property = (WzConvexProperty)prop;
+                if (!isArray)
+                {
+                    tw.Write($"\"{XmlUtil.SanitizeText(property.Name)}\":");
+                }
+                tw.Write("[");
+                if (property.WzProperties.Count() > 0)
+                {
+                    var last = property.WzProperties.Last();
+                    foreach (WzImageProperty p in property.WzProperties)
+                    {
+                        bool isObject = p is WzConvexProperty || p is WzSubProperty || p is WzSoundProperty || p is WzCanvasProperty || p is WzVectorProperty;
+                        tw.Write(isObject ? "" : "{");
+                        WritePropertyToJson(tw, p, true);
+                        tw.Write(isObject ? "" : "}");
+                        if (!p.Equals(last))
+                        {
+                            tw.Write(",");
+                        }
+                    }
+                }
+                tw.Write("]");
             }
         }
     }
@@ -414,6 +605,69 @@ namespace MapleLib.WzLib.Serialization
             }
             else if (currObj is WzUOLProperty)
                 ExportRecursion(((WzUOLProperty)currObj).LinkValue, outPath);
+        }
+    }
+
+    public class WzJsonSerializer : IWzJsonSerializer, IWzImageSerializer
+    {
+        public WzJsonSerializer(bool exportbase64) : base()
+        { ExportBase64Data = exportbase64; }
+
+        private string pretty(string data)
+        {
+            return JsonConvert.SerializeObject(JsonConvert.DeserializeObject(data), Newtonsoft.Json.Formatting.Indented);
+        }
+
+        private void exportJsonInternal(WzImage img, string path)
+        {
+            bool parsed = img.Parsed || img.Changed;
+            if (!parsed) img.ParseImage();
+            curr++;
+            TextWriter tw = new StreamWriter(path);
+            tw.Write($"{{\"name\":\"{XmlUtil.SanitizeText(img.Name)}\"," +
+                $"\"payload\":{{");
+            var last = img.WzProperties.Last();
+            foreach (WzImageProperty p in img.WzProperties)
+            {
+                WritePropertyToJson(tw, p);
+                if (!p.Equals(last))
+                {
+                    tw.Write(",");
+                }
+            }
+            tw.Write("}}");
+            tw.Close();
+            if (!parsed) img.UnparseImage();
+            File.WriteAllText(path, pretty(File.ReadAllText(path)), Encoding.GetEncoding("ISO-8859-1"));
+
+        }
+
+        private void exportDirJsonInternal(WzDirectory dir, string path)
+        {
+            if (!Directory.Exists(path)) createDirSafe(ref path);
+            if (path.Substring(path.Length - 1) != @"\") path += @"\";
+            foreach (WzDirectory subdir in dir.WzDirectories)
+                exportDirJsonInternal(subdir, path + subdir.name + @"\");
+            foreach (WzImage subimg in dir.WzImages)
+                exportJsonInternal(subimg, path + subimg.Name + ".json");
+        }
+
+        public void SerializeImage(WzImage img, string path)
+        {
+            total = 1; curr = 0;
+            if (Path.GetExtension(path) != ".xml") path += ".xml";
+            exportJsonInternal(img, path);
+        }
+
+        public void SerializeDirectory(WzDirectory dir, string path)
+        {
+            total = dir.CountImages(); curr = 0;
+            exportDirJsonInternal(dir, path);
+        }
+
+        public void SerializeFile(WzFile file, string path)
+        {
+            SerializeDirectory(file.WzDirectory, path);
         }
     }
 
